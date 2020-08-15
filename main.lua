@@ -56,7 +56,7 @@ local windows = {
         imgui.NewLine()
       end
     end,
-    show = false
+    show = true
   },
   {
     name = "Save States",
@@ -137,7 +137,7 @@ local windows = {
       imgui.Text(("Sound timer\n%d"):format(chip8.soundTimer))
       
     end,
-    show = true
+    show = false
   }
 }
 
