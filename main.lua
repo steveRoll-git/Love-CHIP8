@@ -28,7 +28,7 @@ for i=1, maxSaveSlots do
   end
 end
 
-local currentFile = "roms/mySnake.ch8"
+local currentRomData
 
 local windows = {
   {
@@ -141,9 +141,13 @@ local windows = {
   }
 }
 
-function love.load()
-  chip8:init(love.filesystem.read(currentFile))
-  chip8.active = false
+function love.load(arg)
+  if #arg > 0 then
+    currentRomData = love.filesystem.read(arg[1])
+  end
+  if currentRomData then
+    chip8:init(currentRomData)
+  end
 end
 
 function love.update(dt)
@@ -169,8 +173,8 @@ function love.draw()
   
   if imgui.BeginMainMenuBar() then
     if imgui.BeginMenu("CHIP-8") then
-      if imgui.MenuItem("Reset") then
-        chip8:init(love.filesystem.read(currentFile))
+      if imgui.MenuItem("Reset") and currentRomData then
+        chip8:init(currentRomData)
       end
       imgui.EndMenu()
     end
@@ -203,7 +207,11 @@ function love.draw()
   imgui.Render()
 end
 
-
+function love.filedropped(file)
+  file:open("r")
+  currentRomData = file:read()
+  chip8:init(currentRomData)
+end
 
 --
 -- User inputs
