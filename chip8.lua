@@ -293,6 +293,8 @@ function chip8:cycle()
       -- **Bnnn**: jump to V0 + nnn
       self.PC = self.V[0] + bit.band(self.opcode, 0x0fff)
       
+      incPC = 0
+      
     elseif nib == 0xC then
       -- **Cxkk**: set Vx = random & kk
       self.V[x] = bit.band(love.math.random(0, 255), opLow)
