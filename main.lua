@@ -131,9 +131,9 @@ local windows = {
       end
       
       imgui.Separator()
-      imgui.Text(("PC\n%d"):format(chip8.PC))
+      imgui.Text(("PC\n%.3x"):format(chip8.PC))
       imgui.SameLine(0, 25)
-      imgui.Text(("I\n%d"):format(chip8.I))
+      imgui.Text(("I\n%.3x"):format(chip8.I))
       
       imgui.Separator()
       imgui.Text(("Delay timer\n%d"):format(chip8.delayTimer))
@@ -142,6 +142,34 @@ local windows = {
       
     end,
     show = false
+  },
+  {
+    name = "Debug",
+    viewRange = 16,
+    draw = function(self)
+      local str_arrow, str_location, str_value = "", "", ""
+      for i = chip8.PC - self.viewRange, chip8.PC + self.viewRange, 2 do
+        if i >= 0 and i < 4096 then
+          if i == chip8.PC then
+            str_arrow = str_arrow .. ">>>>"
+          end
+          
+          str_location = str_location .. ("%.3x"):format(i)
+          
+          str_value = str_value .. ("%.2x%.2x"):format(chip8.memory[i], chip8.memory[i + 1])
+        end
+        
+        str_arrow = str_arrow .. "\n"
+        str_location = str_location .. "\n"
+        str_value = str_value .. "\n"
+      end
+      imgui.Text(str_arrow)
+      imgui.SameLine()
+      imgui.Text(str_location)
+      imgui.SameLine(0, 25)
+      imgui.Text(str_value)
+    end,
+    show = true
   }
 }
 
