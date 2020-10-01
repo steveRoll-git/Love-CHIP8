@@ -178,7 +178,7 @@ local windows = {
       imgui.SameLine(0, 25)
       imgui.Text(str_value)
     end,
-    show = true
+    show = false
   }
 }
 
