@@ -127,8 +127,6 @@ function chip8:init(rom)
   end
   
   self.waitingForKey = false
-  
-  self.active = true
 end
 
 function chip8:printStack()

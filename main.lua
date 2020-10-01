@@ -28,6 +28,8 @@ for i=1, maxSaveSlots do
   end
 end
 
+local activeOnInit = true
+
 local currentRomData
 
 local windows = {
@@ -97,6 +99,8 @@ local windows = {
     name = "Emulation Settings",
     draw = function()
       chip8.active = imgui.Checkbox("Active", chip8.active)
+      imgui.SameLine()
+      activeOnInit = imgui.Checkbox("Active on init", activeOnInit)
       chip8.cyclesPerFrame = imgui.DragInt("Cycles Per Frame", chip8.cyclesPerFrame, 0.2, 1, 50)
       if imgui.Button("Cycle") then
         chip8:cycle()
@@ -175,6 +179,7 @@ function love.draw()
     if imgui.BeginMenu("CHIP-8") then
       if imgui.MenuItem("Reset") and currentRomData then
         chip8:init(currentRomData)
+        chip8.active = activeOnInit
       end
       imgui.EndMenu()
     end
@@ -211,6 +216,7 @@ function love.filedropped(file)
   file:open("r")
   currentRomData = file:read()
   chip8:init(currentRomData)
+  chip8.active = activeOnInit
 end
 
 --
