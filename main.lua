@@ -129,7 +129,7 @@ local windows = {
     draw = function()
       for i=0, 15 do
         if i > 0 then imgui.SameLine(0, 15) end
-        imgui.Text(("V%X\n" .. (VHex and "%x" or "%d")):format(i, chip8.V[i]))
+        imgui.Text(("V%X\n" .. (VHex and "%.2x" or "%d")):format(i, chip8.V[i]))
       end
       
       imgui.SameLine()
