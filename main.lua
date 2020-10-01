@@ -107,6 +107,15 @@ local windows = {
       if imgui.Button("Cycle") then
         chip8:cycle()
       end
+      imgui.NewLine()
+      imgui.Text("Change if game doesn't work properly:")
+      if imgui.Button((chip8.altShiftMode and "Disable" or "Enable") .. " alternative shift") then
+        chip8.altShiftMode = not chip8.altShiftMode
+        if currentRomData then
+          chip8:init(currentRomData)
+          chip8.active = activeOnInit
+        end
+      end
     end,
     show = false
   },

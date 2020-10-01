@@ -76,6 +76,8 @@ function chip8.new()
   
   obj.cyclesPerFrame = 8
   
+  obj.altShiftMode = false
+  
   return obj
 end
 
@@ -258,8 +260,9 @@ function chip8:cycle()
           
         elseif kind == 0x6 then
           -- **8xy6**: set Vx = Vy >> 1, set VF = LSB(Vx)
-          self.V[0xf] = bit.band(self.V[y], 0x1)
-          self.V[x] = bit.rshift(self.V[y], 1)
+          local other = self.altShiftMode and x or y
+          self.V[0xf] = bit.band(self.V[other], 0x1)
+          self.V[x] = bit.rshift(self.V[other], 1)
           
         elseif kind == 0x7 then
           -- **8xy7**: set Vx = Vy - Vx, set VF = not borrow
@@ -272,8 +275,9 @@ function chip8:cycle()
           
         elseif kind == 0xE then
           -- **8xyE**: set Vx = Vy << 1, set VF = MSB(Vx)
-          self.V[0xf] = bit.band(self.V[y], 0x80)
-          self.V[x] = bit.lshift(self.V[y], 1)
+          local other = self.altShiftMode and x or y
+          self.V[0xf] = bit.band(self.V[other], 0x80)
+          self.V[x] = bit.lshift(self.V[other], 1)
           
         else
           self:opcodeError()
