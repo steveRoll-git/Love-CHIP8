@@ -138,265 +138,268 @@ function chip8:printStack()
 end
 
 function chip8:cycle()
-  --fetch
-  local opHigh = self.memory[self.PC]
-  local opLow = self.memory[self.PC + 1]
-  self.opcode = bit.bor(bit.lshift(opHigh, 8), opLow)
-  
-  --print(("executing %04X"):format(opcode))
-  
-  local x = lowNib(opHigh)
-  local y = highNib(opLow)
-  
-  local incPC = 2
-  
-  --decode+execute
-  
-  if self.opcode == 0x00E0 then
-    -- clear screen
+  if not self.waitingForKey then
     
-    self:resetScreen()
-    self:updateScreen()
+    --fetch
+    local opHigh = self.memory[self.PC]
+    local opLow = self.memory[self.PC + 1]
+    self.opcode = bit.bor(bit.lshift(opHigh, 8), opLow)
     
-  elseif self.opcode == 0x00EE then
-    -- return from subroutine
-    if self.SP <= 0 then error("attempt to return when stack is empty") end
+    --print(("executing %04X"):format(opcode))
     
-    self.SP = self.SP - 1
-    self.PC = self.stack[self.SP]
+    local x = lowNib(opHigh)
+    local y = highNib(opLow)
     
-    --print("pop")
-    --printStack()
+    local incPC = 2
     
-  else
+    --decode+execute
     
-    local nib = highNib(opHigh)
-    
-    if nib == 0x1 then
-      -- **1nnn**: jump to address nnn
-      self.PC = bit.band(self.opcode, 0x0fff)
+    if self.opcode == 0x00E0 then
+      -- clear screen
       
-      incPC = 0
-      
-    elseif nib == 0x2 then
-      -- **2nnn**: call subroutine at nnn
-      if self.SP >= 16 then error("stack overflow - too many subroutines") end
-      
-      self.stack[self.SP] = self.PC
-      self.SP = self.SP + 1
-      self.PC = bit.band(self.opcode, 0x0fff)
-      
-      incPC = 0
-      
-      --print("push")
-      --printStack()
-      
-    elseif nib == 0x3 then
-      -- **3xkk**: skip next instruction if Vx == kk
-      if self.V[x] == opLow then
-        self.PC = self.PC + 2
-      end
-      
-    elseif nib == 0x4 then
-      -- **4xkk**: skip next instruction if Vx ~= kk
-      if self.V[x] ~= opLow then
-        self.PC = self.PC + 2
-      end
-      
-    elseif nib == 0x5 and lowNib(opLow) == 0 then
-      -- **5xy0**: skip next instruction if Vx == Vy
-      if self.V[x] == self.V[y] then
-        self.PC = self.PC + 2
-      end
-      
-    elseif nib == 0x6 then
-      -- **6xkk**: set Vx = kk
-      self.V[x] = opLow
-      
-    elseif nib == 0x7 then
-      -- **7xkk**: set Vx = Vx + kk
-      self.V[x] = self.V[x] + opLow
-      
-    elseif nib == 0x8 then
-      local kind = lowNib(opLow)
-      
-      if kind == 0x0 then
-        -- **8xy0**: set Vx = Vy
-        self.V[x] = self.V[y]
-        
-      elseif kind == 0x1 then
-        -- **8xy1**: set Vx = Vx | Vy
-        self.V[x] = bit.bor(self.V[x], self.V[y])
-        
-      elseif kind == 0x2 then
-        -- **8xy2**: set Vx = Vx & Vy
-        self.V[x] = bit.band(self.V[x], self.V[y])
-        
-      elseif kind == 0x3 then
-        -- **8xy3**: set Vx = Vx ^ Vy
-        self.V[x] = bit.bxor(self.V[x], self.V[y])
-        
-      elseif kind == 0x4 then
-        -- **8xy4**: set Vx = Vx + Vy, set VF = carry
-        if self.V[x] + self.V[y] > 255 then
-          self.V[0xf] = 1
-        else
-          self.V[0xf] = 0
-        end
-        self.V[x] = self.V[x] + self.V[y]
-        
-      elseif kind == 0x5 then
-        -- **8xy5**: set Vx = Vx - Vy, set VF = not borrow
-        if self.V[x] > self.V[y] then
-          self.V[0xf] = 1
-        else
-          self.V[0xf] = 0
-        end
-        self.V[x] = self.V[x] - self.V[y]
-        
-      elseif kind == 0x6 then
-        -- **8xy6**: set Vx = Vy >> 1, set VF = LSB(Vx)
-        self.V[0xf] = bit.band(self.V[y], 0x1)
-        self.V[x] = bit.rshift(self.V[y], 1)
-        
-      elseif kind == 0x7 then
-        -- **8xy7**: set Vx = Vy - Vx, set VF = not borrow
-        if self.V[y] > self.V[x] then
-          self.V[0xf] = 1
-        else
-          self.V[0xf] = 0
-        end
-        self.V[x] = self.V[y] - self.V[x]
-        
-      elseif kind == 0xE then
-        -- **8xyE**: set Vx = Vy << 1, set VF = MSB(Vx)
-        self.V[0xf] = bit.band(self.V[y], 0x80)
-        self.V[x] = bit.lshift(self.V[y], 1)
-        
-      else
-        self:opcodeError()
-      end
-      
-    elseif nib == 0x9 and lowNib(opLow) == 0 then
-      -- **9xy0**: skip next instruction if Vx ~= Vy
-      if self.V[x] ~= self.V[y] then
-        self.PC = self.PC + 2
-      end
-      
-    elseif nib == 0xA then
-      -- **Annn**: set I = nnn
-      self.I = bit.band(self.opcode, 0x0fff)
-      
-    elseif nib == 0xB then
-      -- **Bnnn**: jump to V0 + nnn
-      self.PC = self.V[0] + bit.band(self.opcode, 0x0fff)
-      
-      incPC = 0
-      
-    elseif nib == 0xC then
-      -- **Cxkk**: set Vx = random & kk
-      self.V[x] = bit.band(love.math.random(0, 255), opLow)
-      
-    elseif nib == 0xD then
-      -- **Dxyn**: draw n-byte sprite from memory[I] at position (Vx, Vy), set VF = collision
-      self.V[0xf] = 0
-      
-      for iy = 0, lowNib(opLow) - 1 do
-        local row = self.memory[self.I + iy]
-        for ix = 0, 7 do
-          local dx, dy = (self.V[x] + ix) % self.screenW, (self.V[y] + iy) % self.screenH
-          
-          local prevPixel = self.screen[dy * self.screenW + dx]
-          
-          local pixel = bit.band(bit.rshift(row, 7 - ix), 0x01)
-          
-          if prevPixel == 1 and pixel == 1 then
-            self.V[0xf] = true
-          end
-          
-          local color = pixel == prevPixel and 0 or 1
-          self.screen[dy * self.screenW + dx] = color
-        end
-      end
-      
+      self:resetScreen()
       self:updateScreen()
       
-    elseif nib == 0xE then
+    elseif self.opcode == 0x00EE then
+      -- return from subroutine
+      if self.SP <= 0 then error("attempt to return when stack is empty") end
       
-      if opLow == 0x9E then
-        -- **Ex9E**: skip next instruction if key x is down
-        if self.keysDown[self.V[x]] then
+      self.SP = self.SP - 1
+      self.PC = self.stack[self.SP]
+      
+      --print("pop")
+      --printStack()
+      
+    else
+      
+      local nib = highNib(opHigh)
+      
+      if nib == 0x1 then
+        -- **1nnn**: jump to address nnn
+        self.PC = bit.band(self.opcode, 0x0fff)
+        
+        incPC = 0
+        
+      elseif nib == 0x2 then
+        -- **2nnn**: call subroutine at nnn
+        if self.SP >= 16 then error("stack overflow - too many subroutines") end
+        
+        self.stack[self.SP] = self.PC
+        self.SP = self.SP + 1
+        self.PC = bit.band(self.opcode, 0x0fff)
+        
+        incPC = 0
+        
+        --print("push")
+        --printStack()
+        
+      elseif nib == 0x3 then
+        -- **3xkk**: skip next instruction if Vx == kk
+        if self.V[x] == opLow then
           self.PC = self.PC + 2
         end
         
-      elseif opLow == 0xA1 then
-        -- **ExA1**: skip next instruction if key x is up
-        if not self.keysDown[self.V[x]] then
+      elseif nib == 0x4 then
+        -- **4xkk**: skip next instruction if Vx ~= kk
+        if self.V[x] ~= opLow then
           self.PC = self.PC + 2
         end
         
-      else
-        self:opcodeError()
-      end
-      
-    elseif nib == 0xF then
-      
-      if opLow == 0x07 then
-        -- **Fx07**: set Vx = delayTimer
-        self.V[x] = self.delayTimer
-        
-      elseif opLow == 0x0A then
-        -- **Fx0A**: wait for key press, store pressed key in Vx
-        self.waitingForKey = true
-        self.waitingReg = x
-        
-      elseif opLow == 0x15 then
-        -- **Fx15**: set delayTimer = Vx
-        self.delayTimer = self.V[x]
-        
-      elseif opLow == 0x18 then
-        -- **Fx18**: set soundTimer = Vx
-        self.soundTimer = self.V[x]
-        self.sound:play()
-        
-      elseif opLow == 0x1E then
-        -- **Fx1E**: set I = I + Vx
-        self.I = self.I + self.V[x]
-        
-      elseif opLow == 0x29 then
-        -- **Fx29**: set I = sprite location for digit Vx
-        self.I = fontLocation + self.V[x] * 5
-        
-      elseif opLow == 0x33 then
-        -- **Fx33**: store BCD representation of V[x] in memory locations I, I+1, I+2
-        self.memory[self.I] = math.floor(self.V[x] / 100)
-        self.memory[self.I + 1] = math.floor(self.V[x] / 10) % 10
-        self.memory[self.I + 2] = self.V[x] % 10
-        
-      elseif opLow == 0x55 then
-        -- **Fx55**: store registers V0 through Vx in memory starting at location I
-        for i=0, x do
-          self.memory[self.I + i] = self.V[i]
+      elseif nib == 0x5 and lowNib(opLow) == 0 then
+        -- **5xy0**: skip next instruction if Vx == Vy
+        if self.V[x] == self.V[y] then
+          self.PC = self.PC + 2
         end
         
-      elseif opLow == 0x65 then
-        -- **Fx65**: copy memory from location I to registers V0 - Vx
-        for i=0, x do
-          self.V[i] = self.memory[self.I + i]
+      elseif nib == 0x6 then
+        -- **6xkk**: set Vx = kk
+        self.V[x] = opLow
+        
+      elseif nib == 0x7 then
+        -- **7xkk**: set Vx = Vx + kk
+        self.V[x] = self.V[x] + opLow
+        
+      elseif nib == 0x8 then
+        local kind = lowNib(opLow)
+        
+        if kind == 0x0 then
+          -- **8xy0**: set Vx = Vy
+          self.V[x] = self.V[y]
+          
+        elseif kind == 0x1 then
+          -- **8xy1**: set Vx = Vx | Vy
+          self.V[x] = bit.bor(self.V[x], self.V[y])
+          
+        elseif kind == 0x2 then
+          -- **8xy2**: set Vx = Vx & Vy
+          self.V[x] = bit.band(self.V[x], self.V[y])
+          
+        elseif kind == 0x3 then
+          -- **8xy3**: set Vx = Vx ^ Vy
+          self.V[x] = bit.bxor(self.V[x], self.V[y])
+          
+        elseif kind == 0x4 then
+          -- **8xy4**: set Vx = Vx + Vy, set VF = carry
+          if self.V[x] + self.V[y] > 255 then
+            self.V[0xf] = 1
+          else
+            self.V[0xf] = 0
+          end
+          self.V[x] = self.V[x] + self.V[y]
+          
+        elseif kind == 0x5 then
+          -- **8xy5**: set Vx = Vx - Vy, set VF = not borrow
+          if self.V[x] > self.V[y] then
+            self.V[0xf] = 1
+          else
+            self.V[0xf] = 0
+          end
+          self.V[x] = self.V[x] - self.V[y]
+          
+        elseif kind == 0x6 then
+          -- **8xy6**: set Vx = Vy >> 1, set VF = LSB(Vx)
+          self.V[0xf] = bit.band(self.V[y], 0x1)
+          self.V[x] = bit.rshift(self.V[y], 1)
+          
+        elseif kind == 0x7 then
+          -- **8xy7**: set Vx = Vy - Vx, set VF = not borrow
+          if self.V[y] > self.V[x] then
+            self.V[0xf] = 1
+          else
+            self.V[0xf] = 0
+          end
+          self.V[x] = self.V[y] - self.V[x]
+          
+        elseif kind == 0xE then
+          -- **8xyE**: set Vx = Vy << 1, set VF = MSB(Vx)
+          self.V[0xf] = bit.band(self.V[y], 0x80)
+          self.V[x] = bit.lshift(self.V[y], 1)
+          
+        else
+          self:opcodeError()
         end
         
-      else
-        self:opcodeError()
+      elseif nib == 0x9 and lowNib(opLow) == 0 then
+        -- **9xy0**: skip next instruction if Vx ~= Vy
+        if self.V[x] ~= self.V[y] then
+          self.PC = self.PC + 2
+        end
+        
+      elseif nib == 0xA then
+        -- **Annn**: set I = nnn
+        self.I = bit.band(self.opcode, 0x0fff)
+        
+      elseif nib == 0xB then
+        -- **Bnnn**: jump to V0 + nnn
+        self.PC = self.V[0] + bit.band(self.opcode, 0x0fff)
+        
+        incPC = 0
+        
+      elseif nib == 0xC then
+        -- **Cxkk**: set Vx = random & kk
+        self.V[x] = bit.band(love.math.random(0, 255), opLow)
+        
+      elseif nib == 0xD then
+        -- **Dxyn**: draw n-byte sprite from memory[I] at position (Vx, Vy), set VF = collision
+        self.V[0xf] = 0
+        
+        for iy = 0, lowNib(opLow) - 1 do
+          local row = self.memory[self.I + iy]
+          for ix = 0, 7 do
+            local dx, dy = (self.V[x] + ix) % self.screenW, (self.V[y] + iy) % self.screenH
+            
+            local prevPixel = self.screen[dy * self.screenW + dx]
+            
+            local pixel = bit.band(bit.rshift(row, 7 - ix), 0x01)
+            
+            if prevPixel == 1 and pixel == 1 then
+              self.V[0xf] = true
+            end
+            
+            local color = pixel == prevPixel and 0 or 1
+            self.screen[dy * self.screenW + dx] = color
+          end
+        end
+        
+        self:updateScreen()
+        
+      elseif nib == 0xE then
+        
+        if opLow == 0x9E then
+          -- **Ex9E**: skip next instruction if key x is down
+          if self.keysDown[self.V[x]] then
+            self.PC = self.PC + 2
+          end
+          
+        elseif opLow == 0xA1 then
+          -- **ExA1**: skip next instruction if key x is up
+          if not self.keysDown[self.V[x]] then
+            self.PC = self.PC + 2
+          end
+          
+        else
+          self:opcodeError()
+        end
+        
+      elseif nib == 0xF then
+        
+        if opLow == 0x07 then
+          -- **Fx07**: set Vx = delayTimer
+          self.V[x] = self.delayTimer
+          
+        elseif opLow == 0x0A then
+          -- **Fx0A**: wait for key press, store pressed key in Vx
+          self.waitingForKey = true
+          self.waitingReg = x
+          
+        elseif opLow == 0x15 then
+          -- **Fx15**: set delayTimer = Vx
+          self.delayTimer = self.V[x]
+          
+        elseif opLow == 0x18 then
+          -- **Fx18**: set soundTimer = Vx
+          self.soundTimer = self.V[x]
+          self.sound:play()
+          
+        elseif opLow == 0x1E then
+          -- **Fx1E**: set I = I + Vx
+          self.I = self.I + self.V[x]
+          
+        elseif opLow == 0x29 then
+          -- **Fx29**: set I = sprite location for digit Vx
+          self.I = fontLocation + self.V[x] * 5
+          
+        elseif opLow == 0x33 then
+          -- **Fx33**: store BCD representation of V[x] in memory locations I, I+1, I+2
+          self.memory[self.I] = math.floor(self.V[x] / 100)
+          self.memory[self.I + 1] = math.floor(self.V[x] / 10) % 10
+          self.memory[self.I + 2] = self.V[x] % 10
+          
+        elseif opLow == 0x55 then
+          -- **Fx55**: store registers V0 through Vx in memory starting at location I
+          for i=0, x do
+            self.memory[self.I + i] = self.V[i]
+          end
+          
+        elseif opLow == 0x65 then
+          -- **Fx65**: copy memory from location I to registers V0 - Vx
+          for i=0, x do
+            self.V[i] = self.memory[self.I + i]
+          end
+          
+        else
+          self:opcodeError()
+        end
+        
       end
       
     end
     
-  end
-  
-  self.PC = self.PC + incPC
-  
-  if self.PC > 4095 then
-    error("PC out of range")
+    self.PC = self.PC + incPC
+    
+    if self.PC > 4095 then
+      error("PC out of range")
+    end
   end
 end
 
