@@ -152,23 +152,18 @@ local windows = {
     name = "Debug",
     viewRange = 16,
     draw = function(self)
-      local str_arrow, str_location, str_value = "", "", ""
+      local str_location, str_value = "", ""
       for i = chip8.PC - self.viewRange, chip8.PC + self.viewRange, 2 do
         if i >= 0 and i < 4096 then
-          if i == chip8.PC then
-            str_arrow = str_arrow .. ">>>>"
-          end
-          
           str_location = str_location .. ("%.3x"):format(i)
           
           str_value = str_value .. ("%.2x%.2x"):format(chip8.memory[i], chip8.memory[i + 1])
         end
         
-        str_arrow = str_arrow .. "\n"
         str_location = str_location .. "\n"
         str_value = str_value .. "\n"
       end
-      imgui.Text(str_arrow)
+      imgui.Text(("\n"):rep(self.viewRange / 2) .. ">>>")
       imgui.SameLine()
       imgui.Text(str_location)
       imgui.SameLine(0, 25)
