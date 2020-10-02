@@ -188,6 +188,7 @@ function love.load(arg)
   end
   if currentRomData then
     chip8:init(currentRomData)
+    chip8.active = activeOnInit
   end
 end
 
