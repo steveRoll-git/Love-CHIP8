@@ -18,6 +18,22 @@ end
 
 local fontLocation = 0x50
 
+local soundData
+--generate a sine wave
+do
+  local frequency = 441
+  local amplitude = 0.5
+  
+  local sampleRate = 44100
+  local totalSamples = sampleRate / frequency
+  
+  soundData = love.sound.newSoundData(totalSamples, sampleRate, 16, 1)
+  
+  for i=0, totalSamples - 1 do
+    soundData:setSample(i, math.sin(i / totalSamples * math.pi * 2) * amplitude)
+  end
+end
+
 local chip8 = {}
 chip8.__index = chip8
 
@@ -70,7 +86,7 @@ function chip8.new()
   obj.waitingForKey = false
   obj.waitingReg = 0
 
-  obj.sound = love.audio.newSource("sound.wav", "static")
+  obj.sound = love.audio.newSource(soundData)
   obj.sound:setLooping(true)
   
   obj.cyclesPerFrame = 8
