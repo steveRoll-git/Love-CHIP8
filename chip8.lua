@@ -1,5 +1,3 @@
-love.graphics.setDefaultFilter("nearest")
-
 local zero16 = ("\0"):rep(16)
 
 local ffi = require "ffi"
@@ -42,6 +40,7 @@ function chip8.new()
   obj.screen = ffi.new("unsigned char[64 * 32]")
   obj.screenData = love.image.newImageData(obj.screenW, obj.screenH)
   obj.screenImg = love.graphics.newImage(obj.screenData)
+  obj.screenImg:setFilter("nearest")
   obj.color0 = {0, 0, 0, 1}
   obj.color1 = {1, 1, 1, 1}
   obj.screenMap = function(x, y)
