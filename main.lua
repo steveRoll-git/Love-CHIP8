@@ -255,6 +255,7 @@ function love.filedropped(file)
   currentRomData = file:read()
   chip8:init(currentRomData)
   chip8.active = activeOnInit
+  file:close()
 end
 
 --
