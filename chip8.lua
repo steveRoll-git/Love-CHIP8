@@ -115,7 +115,7 @@ function chip8:updateScreen()
 end
 
 function chip8:opcodeError()
-  error(("unknown opcode: %x"):format(self.opcode))
+  self:error(("unknown opcode: %x"):format(self.opcode))
 end
 
 function chip8:init(rom)
@@ -142,6 +142,8 @@ function chip8:init(rom)
   for i=1, #rom do
     self.memory[0x200 + i - 1] = rom:byte(i)
   end
+  
+  self.sound:stop()
   
   self.waitingForKey = false
 end
@@ -179,7 +181,7 @@ function chip8:cycle()
       
     elseif self.opcode == 0x00EE then
       -- return from subroutine
-      if self.SP <= 0 then error("attempt to return when stack is empty") end
+      if self.SP <= 0 then self:error("attempt to return when stack is empty") return end
       
       self.SP = self.SP - 1
       self.PC = self.stack[self.SP]
@@ -199,7 +201,7 @@ function chip8:cycle()
         
       elseif nib == 0x2 then
         -- **2nnn**: call subroutine at nnn
-        if self.SP >= 16 then error("stack overflow - too many subroutines") end
+        if self.SP >= 16 then self:error("stack overflow - too many subroutines") return end
         
         self.stack[self.SP] = self.PC
         self.SP = self.SP + 1
@@ -296,6 +298,7 @@ function chip8:cycle()
           
         else
           self:opcodeError()
+          return
         end
         
       elseif nib == 0x9 and lowNib(opLow) == 0 then
@@ -358,6 +361,7 @@ function chip8:cycle()
           
         else
           self:opcodeError()
+          return
         end
         
       elseif nib == 0xF then
@@ -408,6 +412,7 @@ function chip8:cycle()
           
         else
           self:opcodeError()
+          return
         end
         
       end
@@ -417,7 +422,8 @@ function chip8:cycle()
     self.PC = self.PC + incPC
     
     if self.PC > 4095 then
-      error("PC out of range")
+      self:error("PC out of range")
+      return
     end
   end
 end

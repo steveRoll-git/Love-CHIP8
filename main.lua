@@ -34,6 +34,29 @@ local VHex = false
 
 local currentRomData
 
+local lastError
+local lastErrorTime
+local showError = false
+local highlightError = false
+local pauseOnError = true
+local errorFlashDuration = 0.5
+local errorFlashInterval = 0.075
+
+chip8.error = function(self, message)
+  lastError = message
+  lastErrorTime = love.timer.getTime()
+  showError = true
+  highlightError = true
+  self.active = not pauseOnError
+  if pauseOnError then self.sound:stop() end
+end
+
+local function restart()
+  chip8:init(currentRomData)
+  chip8.active = activeOnInit
+  highlightError = false
+end
+
 local windows = {
   {
     name = "Screen",
@@ -107,13 +130,16 @@ local windows = {
       if imgui.Button("Cycle") then
         chip8:cycle()
       end
+      if imgui.Button("Stop Sound") then
+        chip8.sound:stop()
+      end
+      pauseOnError = imgui.Checkbox("Pause on error", pauseOnError)
       imgui.NewLine()
       imgui.Text("Change if game doesn't work properly:")
       if imgui.Button((chip8.altShiftMode and "Disable" or "Enable") .. " alternative shift") then
         chip8.altShiftMode = not chip8.altShiftMode
         if currentRomData then
-          chip8:init(currentRomData)
-          chip8.active = activeOnInit
+          restart()
         end
       end
     end,
@@ -187,8 +213,7 @@ function love.load(arg)
     currentRomData = love.filesystem.read(arg[1])
   end
   if currentRomData then
-    chip8:init(currentRomData)
-    chip8.active = activeOnInit
+    restart()
   end
 end
 
@@ -216,8 +241,7 @@ function love.draw()
   if imgui.BeginMainMenuBar() then
     if imgui.BeginMenu("CHIP-8") then
       if imgui.MenuItem("Reset") and currentRomData then
-        chip8:init(currentRomData)
-        chip8.active = activeOnInit
+        restart()
       end
       imgui.EndMenu()
     end
@@ -247,14 +271,29 @@ function love.draw()
     end
   end
   
+  if showError then
+    showError = imgui.Begin("Error", true, "ImGuiWindowFlags_AlwaysAutoResize")
+    local r, g, b, a = 1, 1, 1, 1
+    if highlightError then
+      r, g, b = 1, 0, 0
+    end
+    if love.timer.getTime() - lastErrorTime <= errorFlashDuration then
+      a = math.floor((love.timer.getTime() - lastErrorTime) / errorFlashInterval) % 2
+      r, g, b = 1, 1, 0
+    end
+    imgui.PushStyleColor("ImGuiCol_Text", r, g, b, a)
+    imgui.Text(lastError)
+    imgui.PopStyleColor()
+    imgui.End()
+  end
+  
   imgui.Render()
 end
 
 function love.filedropped(file)
   file:open("r")
   currentRomData = file:read()
-  chip8:init(currentRomData)
-  chip8.active = activeOnInit
+  restart()
   file:close()
 end
 
